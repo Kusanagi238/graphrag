@@ -40,4 +40,31 @@ def create_graphrag_config(
     if root_dir:
         root_path = Path(root_dir).resolve()
         values["root_dir"] = str(root_path)
+
+    # If the configuration intends to use API key authentication, attempt to
+    # populate missing API key fields from common environment variables so
+    # that GraphRagConfig validation does not fail with unclear errors.
+    # We attempt several common names to be robust across environments.
+    auth = values.get("auth") or values.get("authentication") or values.get("auth_type")
+    if auth == "api_key":
+        import os
+
+        # Populate a generic api_key if not present
+        values.setdefault(
+            "api_key",
+            os.environ.get("GRAPHRAG_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        )
+
+        # Populate chat-specific API key if not present
+        values.setdefault(
+            "chat_api_key",
+            os.environ.get("GRAPHRAG_CHAT_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_CHAT_API_KEY")
+        )
+
+        # Populate embedding-specific API key if not present
+        values.setdefault(
+            "embedding_api_key",
+            os.environ.get("GRAPHRAG_EMBEDDING_API_KEY") or os.environ.get("OPENAI_EMBEDDING_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        )
+
     return GraphRagConfig(**values)

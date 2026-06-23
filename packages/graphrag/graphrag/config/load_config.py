@@ -59,16 +59,22 @@ def _parse_env_variables(text: str) -> str:
     str
         The configuration text with environment variables parsed.
 
-    Raises
-    ------
-    KeyError
-        If an environment variable is not found.
+    Notes
+    -----
+    Uses safe substitution so missing environment variables do not raise KeyError.
     """
-    return Template(text).substitute(os.environ)
+    # Use safe_substitute to avoid raising KeyError for missing environment variables.
+    # Missing variables will remain as ${VAR} in the returned text.
+    return Template(text).safe_substitute(os.environ)
 
 
 def _load_dotenv(config_path: Path | str) -> None:
-    """Load the .env file if it exists in the same directory as the config file.
+    """Load the .env file found near the config file.
+
+    This searches upward from the configuration file's directory for the first
+    .env file (so repository-level or project-level .env files are found). If
+    none is found, fall back to letting python-dotenv attempt to locate a
+    .env file from the current working directory.
 
     Parameters
     ----------
@@ -76,9 +82,23 @@ def _load_dotenv(config_path: Path | str) -> None:
         The path to the config file.
     """
     config_path = Path(config_path)
-    dotenv_path = config_path.parent / ".env"
-    if dotenv_path.exists():
-        load_dotenv(dotenv_path)
+
+    # Search upward from the config directory to the filesystem root for a .env
+    current = config_path.parent
+    while True:
+        dotenv_path = current / ".env"
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path)
+            return
+        # If we've reached the filesystem root, stop searching
+        if current == current.parent:
+            break
+        current = current.parent
+
+    # Fallback: let python-dotenv try to discover a .env from the process cwd
+    # (it will walk upward from cwd). This ensures repository-level env files
+    # are considered even if they are not a strict ancestor of the config file.
+    load_dotenv()
 
 
 def _get_config_path(root_dir: Path, config_filepath: Path | None) -> Path:

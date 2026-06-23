@@ -142,9 +142,19 @@ class TestIndexer:
         ]
         command = [arg for arg in command if arg]
         logger.info("running command ", " ".join(command))
-        completion = subprocess.run(command, env=os.environ)
+        # Do not pass the possibly modified os.environ directly. Let subprocess inherit the
+        # current process environment (which will include any real API keys), and capture
+        # stdout/stderr to improve diagnostics on failure.
+        completion = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        if completion.returncode != 0:
+            logger.error("Indexer stdout:\n%s", completion.stdout)
+            logger.error("Indexer stderr:\n%s", completion.stderr)
         assert completion.returncode == 0, (
-            f"Indexer failed with return code: {completion.returncode}"
+            f"Indexer failed with return code: {completion.returncode}\n"
+            f"stdout:\n{completion.stdout}\n"
+            f"stderr:\n{completion.stderr}"
         )
 
     def __assert_indexer_outputs(
@@ -224,10 +234,9 @@ class TestIndexer:
             **os.environ,
             "BLOB_STORAGE_CONNECTION_STRING": WELL_KNOWN_AZURITE_CONNECTION_STRING,
             "LOCAL_BLOB_STORAGE_CONNECTION_STRING": WELL_KNOWN_AZURITE_CONNECTION_STRING,
-            "AZURE_AI_SEARCH_URL_ENDPOINT": os.getenv("AZURE_AI_SEARCH_URL_ENDPOINT"),
-            "AZURE_AI_SEARCH_API_KEY": os.getenv("AZURE_AI_SEARCH_API_KEY"),
+            "AZURE_AI_SEARCH_URL_ENDPOINT": os.getenv("AZURE_AI_SEARCH_URL_ENDPOINT") or os.environ.get("AZURE_AI_SEARCH_URL_ENDPOINT"),
+            "AZURE_AI_SEARCH_API_KEY": os.getenv("AZURE_AI_SEARCH_API_KEY") or os.environ.get("AZURE_AI_SEARCH_API_KEY"),
         },
-        clear=True,
     )
     @pytest.mark.timeout(2000)
     def test_fixture(

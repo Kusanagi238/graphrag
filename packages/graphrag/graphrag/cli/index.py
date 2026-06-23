@@ -56,7 +56,28 @@ def index_cli(
         cli_overrides["output.base_dir"] = str(output_dir)
         cli_overrides["reporting.base_dir"] = str(output_dir)
         cli_overrides["update_index_output.base_dir"] = str(output_dir)
-    config = load_config(root_dir, config_filepath, cli_overrides)
+    try:
+        config = load_config(root_dir, config_filepath, cli_overrides)
+    except Exception as e:
+        handled = False
+        try:
+            from pydantic import ValidationError as PydanticValidationError
+            if isinstance(e, PydanticValidationError):
+                handled = True
+        except Exception:
+            # Fall back to name/string matching if pydantic isn't importable
+            if e.__class__.__name__.endswith("ValidationError") or "API Key is required" in str(e):
+                handled = True
+        if handled:
+            logger.error("Configuration validation failed: %s", e)
+            print(
+                "Configuration error: API Key is required for chat/embedding when using api_key authentication. "
+                "Please set the API key in your config file, provide it via environment variables, or pass it via CLI overrides."
+            )
+            import sys
+
+            sys.exit(2)
+        raise
     _run_index(
         config=config,
         method=method,
@@ -86,7 +107,28 @@ def update_cli(
         cli_overrides["reporting.base_dir"] = str(output_dir)
         cli_overrides["update_index_output.base_dir"] = str(output_dir)
 
-    config = load_config(root_dir, config_filepath, cli_overrides)
+    try:
+        config = load_config(root_dir, config_filepath, cli_overrides)
+    except Exception as e:
+        handled = False
+        try:
+            from pydantic import ValidationError as PydanticValidationError
+            if isinstance(e, PydanticValidationError):
+                handled = True
+        except Exception:
+            # Fall back to name/string matching if pydantic isn't importable
+            if e.__class__.__name__.endswith("ValidationError") or "API Key is required" in str(e):
+                handled = True
+        if handled:
+            logger.error("Configuration validation failed: %s", e)
+            print(
+                "Configuration error: API Key is required for chat/embedding when using api_key authentication. "
+                "Please set the API key in your config file, provide it via environment variables, or pass it via CLI overrides."
+            )
+            import sys
+
+            sys.exit(2)
+        raise
 
     _run_index(
         config=config,
